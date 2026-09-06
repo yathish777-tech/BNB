@@ -1,0 +1,42 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* ── Continuous Infinite Horizontal Sliding ── */
+@keyframes slide-ltr {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0%, 0, 0);
+  }
+}
+
+@keyframes slide-rtl {
+  0% {
+    transform: translate3d(0%, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-infinite-ltr {
+  display: flex;
+  width: max-content;
+  animation: slide-ltr var(--slide-speed, 35s) linear infinite;
+  will-change: transform;
+}
+
+.animate-infinite-rtl {
+  display: flex;
+  width: max-content;
+  animation: slide-rtl var(--slide-speed, 35s) linear infinite;
+  will-change: transform;
+}
+
+.animate-infinite-ltr:hover,
+.animate-infinite-rtl:hover {
+  animation-play-state: paused;
+}
+
