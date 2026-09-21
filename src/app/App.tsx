@@ -14,6 +14,7 @@ import bnbWordmarkImg from "@/imports/bnb-wordmark.png";
 
 import WhatWeDoSection from "./components/WhatWeDo/WhatWeDoSection";
 import InstagramSection from "./components/Instagram/InstagramSection";
+import ScrollVideoHero from "./components/Hero/ScrollVideoHero";
 import {
   adminLogin, adminLogout, adminMe, adminGetCategories, adminGetImages,
   adminGetDashboardStats, adminAddCategory, adminDeleteCategory,
@@ -271,76 +272,8 @@ export default function App() {
         </AnimatePresence>
       </nav>
 
-      {/* ── HERO ── */}
-      <section id="home" className="relative h-screen overflow-hidden">
-        <div
-          className="absolute inset-0"
-          style={{ transform: `scale(1.12) translateY(${scrollY * 0.28}px)`, willChange: "transform" }}
-        >
-          <img src={heroImg} alt="B&B Event Planners Stage Decoration" className="w-full h-full object-cover" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.2) 40%, rgba(5,5,5,0.95) 100%)" }} />
-        </div>
-
-        <div className="relative z-10 h-full flex flex-col justify-end pb-24 px-6 md:px-16 max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="flex items-center gap-3 mb-7">
-              <div className="h-px w-10 bg-[#FFD900]" />
-              <span className="text-[#FFD900] text-[11px] tracking-[0.35em] font-medium uppercase">Premium Event Planners</span>
-            </div>
-
-            <h1
-              className="text-[clamp(2.8rem,8vw,6rem)] font-bold leading-[1.02] mb-5"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              We Turn Moments<br />
-              <span className="text-[#FFD900]">Into Beautiful</span><br />
-              Memories
-            </h1>
-
-            <p className="text-[#A0A0A0] text-base md:text-lg max-w-xl mb-3 leading-relaxed">
-              Premium Event Planning & Decoration Services in{" "}
-              <span className="text-white">Hosur, Bangalore, Krishnagiri & Dharmapuri</span>.
-            </p>
-            <p className="text-[#FFD900]/70 text-[12px] tracking-[0.25em] uppercase mb-10">
-              Creating Beautiful Memories is our Business
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-start gap-4">
-              <a
-                href="#what-we-do"
-                className="group flex items-center gap-3 text-white hover:text-[#050505] hover:bg-[#FFD900] px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-300"
-                style={{
-                  ...glassSurface,
-                  clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)",
-                }}
-              >
-                EXPLORE OUR WORK
-                <ChevronDown size={15} className="group-hover:translate-y-1 transition-transform duration-300" />
-              </a>
-              <a
-                href="#make-an-enquiry"
-                className="flex items-center gap-2 text-[#050505] bg-[#FFD900] hover:bg-[#E5B800] px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-300"
-                style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}
-              >
-                Make an Enquiry <ArrowRight size={15} />
-              </a>
-            </div>
-          </motion.div>
-        </div>
-
-        <motion.div
-          className="absolute right-8 bottom-20 hidden md:flex flex-col items-center gap-2"
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
-        >
-          <span className="text-[#A0A0A0] text-[10px] tracking-[0.25em]" style={{ writingMode: "vertical-rl" }}>SCROLL</span>
-          <div className="w-px h-12 bg-gradient-to-b from-[#FFD900] to-transparent" />
-        </motion.div>
-      </section>
+      {/* 🎨 HERO 🎨 */}
+      <ScrollVideoHero />
 
       {/* ── WHAT WE DO — Compact Interactive Module ── */}
       <WhatWeDoSection scrollY={scrollY} />
