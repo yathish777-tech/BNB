@@ -36,16 +36,22 @@ export interface EnquiryPayload {
 // ── Public ────────────────────────────────────────────────────────────────────
 
 export async function fetchCategories(): Promise<APICategory[]> {
-  const res = await fetch(`${BASE}/categories`);
-  const data = await res.json();
-  if (!data.success) throw new Error('Failed to load categories');
-  return data.categories as APICategory[];
+  try {
+    const res = await fetch(`${BASE}/categories`);
+    if (!res.ok) { console.warn(`[api] /categories → ${res.status}`); return []; }
+    const data = await res.json();
+    if (!data.success) return [];
+    return data.categories as APICategory[];
+  } catch (err) {
+    console.warn('[api] fetchCategories failed (backend down?)', err);
+    return [];
+  }
 }
 
 export async function fetchFeaturedImage(slug: string): Promise<APIImage | null> {
   try {
     const res = await fetch(`${BASE}/categories/${slug}/featured`);
-    if (res.status === 404) return null;
+    if (!res.ok) return null;
     const data = await res.json();
     if (!data.success) return null;
     return data.image as APIImage;
@@ -57,21 +63,29 @@ export async function fetchFeaturedImage(slug: string): Promise<APIImage | null>
 export async function fetchCategoryImages(slug: string): Promise<APIImage[]> {
   try {
     const res = await fetch(`${BASE}/categories/${slug}/images`);
+    if (!res.ok) { console.warn(`[api] /${slug}/images → ${res.status}`); return []; }
     const data = await res.json();
     if (!data.success) return [];
     return data.images as APIImage[];
-  } catch {
+  } catch (err) {
+    console.warn('[api] fetchCategoryImages failed (backend down?)', err);
     return [];
   }
 }
 
 export async function submitEnquiry(payload: EnquiryPayload): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${BASE}/enquiries`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return await res.json();
+  try {
+    const res = await fetch(`${BASE}/enquiries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return { success: false, message: `Server error ${res.status}` };
+    return await res.json();
+  } catch (err) {
+    console.warn('[api] submitEnquiry failed', err);
+    return { success: false, message: 'Could not reach server. Please try again.' };
+  }
 }
 
 export interface InstagramMedia {

@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "dev:backend": "cd backend && python run.py",
+    "dev:all": "concurrently --kill-others --names \"VITE,FLASK\" --prefix-colors \"cyan,yellow\" \"vite\" \"cd backend && python run.py\""
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -69,6 +71,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
+    "concurrently": "^10.0.5",
     "tailwindcss": "4.1.12",
     "vite": "^8.2.2"
   },

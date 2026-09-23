@@ -199,7 +199,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-[#050505] text-white min-h-screen overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="bg-[#050505] text-white min-h-screen" style={{ fontFamily: "'Inter', sans-serif", overflowX: "clip" }}>
 
       {/* ── NAVBAR ── */}
       <nav

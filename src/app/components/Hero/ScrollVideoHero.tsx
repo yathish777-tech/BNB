@@ -2,164 +2,145 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { ChevronDown, ArrowRight } from "lucide-react";
 
+const SCRUB_START_SECONDS = 0.09;
+const SCRUB_EASE = 0.12;
+const SEEK_EPSILON_SECONDS = 0.025;
+
 export default function ScrollVideoHero() {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  const [videoState, setVideoState] = useState({
-    status: "Loading...",
-    duration: 0,
-    width: 0,
-    height: 0,
-    error: ""
-  });
-
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  const debugTimeRef = useRef<HTMLSpanElement>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    let rafId: number;
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container || !isReady) return;
 
-    const handleScroll = () => {
-      const video = videoRef.current;
-      const container = containerRef.current;
-      if (!container || !video) return;
-      
-      const containerTop = container.offsetTop;
-      const containerHeight = container.offsetHeight;
-      const windowHeight = window.innerHeight;
-      
-      const scrollY = window.scrollY;
-      const scrolled = scrollY - containerTop;
-      const scrollTrackHeight = containerHeight - windowHeight;
-      
-      let progress = scrollTrackHeight > 0 ? scrolled / scrollTrackHeight : 0;
-      progress = Math.max(0, Math.min(1, progress));
-      
-      if (video.readyState >= 1 && Number.isFinite(video.duration) && video.duration > 0) {
-        // Smoothly update video current time based on scroll progress
-        video.currentTime = progress * video.duration;
-        
-        // Update debug text without triggering React renders
-        if (debugTimeRef.current) {
-          debugTimeRef.current.innerText = `Time: ${video.currentTime.toFixed(2)}s / ${video.duration.toFixed(2)}s (Prog: ${(progress * 100).toFixed(1)}%)`;
+    let rafId = 0;
+    let targetTime = Math.min(SCRUB_START_SECONDS, Math.max(video.duration - 0.25, 0));
+    let smoothTime = targetTime;
+    let isSeeking = false;
+
+    const updateTargetTime = () => {
+      const rect = container.getBoundingClientRect();
+      const trackHeight = container.offsetHeight - window.innerHeight;
+      const scrolled = Math.max(0, -rect.top);
+      const progress = trackHeight > 0 ? Math.min(scrolled / trackHeight, 1) : 0;
+      const startTime = Math.min(SCRUB_START_SECONDS, Math.max(video.duration - 0.25, 0));
+      const endTime = Math.max(video.duration - 0.1, startTime);
+      targetTime = startTime + progress * (endTime - startTime);
+    };
+
+    const animateScrub = () => {
+      updateTargetTime();
+
+      if (Number.isFinite(targetTime)) {
+        smoothTime += (targetTime - smoothTime) * SCRUB_EASE;
+
+        if (!isSeeking && Math.abs(video.currentTime - smoothTime) > SEEK_EPSILON_SECONDS) {
+          isSeeking = true;
+          video.currentTime = smoothTime;
         }
       }
+
+      rafId = requestAnimationFrame(animateScrub);
     };
 
-    const loop = () => {
-      handleScroll();
-      rafId = requestAnimationFrame(loop);
+    const onScrollOrResize = () => {
+      updateTargetTime();
     };
 
-    // Start tracking scroll immediately
-    rafId = requestAnimationFrame(loop);
+    video.pause();
+    video.currentTime = targetTime;
+    updateTargetTime();
+    rafId = requestAnimationFrame(animateScrub);
+
+    const onSeeked = () => {
+      isSeeking = false;
+    };
+
+    video.addEventListener("seeked", onSeeked);
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
 
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
+      cancelAnimationFrame(rafId);
+      video.removeEventListener("seeked", onSeeked);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
     };
-  }, []);
+  }, [isReady]);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start start", "end end"]
+    offset: ["start start", "end end"],
   });
 
-  const textOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  const textOpacity = useTransform(scrollYProgress, [0, 0.16], [1, 0]);
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
-  
-  const handleLoadedMetadata = () => {
-    const video = videoRef.current;
-    if (video) {
-      setVideoState(prev => ({
-        ...prev,
-        duration: video.duration,
-        width: video.videoWidth,
-        height: video.videoHeight,
-        status: "Metadata Loaded"
-      }));
-    }
-  };
-
-  const handleLoadedData = () => {
-    setVideoState(prev => ({ ...prev, status: "Data Loaded" }));
-  };
-
-  const handleCanPlay = () => {
-    const video = videoRef.current;
-    if (video) {
-      // Force frame decode for some browsers that show black screen until played
-      video.play().then(() => {
-        video.pause();
-      }).catch(() => {});
-      
-      setVideoState(prev => ({
-        ...prev,
-        status: `Ready — ${video.videoWidth} × ${video.videoHeight} — ${video.duration.toFixed(1)}s`
-      }));
-      setIsLoaded(true);
-    }
-  };
-
-  const handleError = () => {
-    const video = videoRef.current;
-    if (video && video.error) {
-      setVideoState(prev => ({
-        ...prev,
-        status: "ERROR — unable to load MP4",
-        error: `${video.error.code}: ${video.error.message}`
-      }));
-    } else {
-      setVideoState(prev => ({
-        ...prev,
-        status: "ERROR — unable to load MP4"
-      }));
-    }
-  };
 
   return (
-    <section id="home" ref={containerRef} className="relative h-[300vh] bg-black">
+    <section id="home" ref={containerRef} className="relative h-[500vh] bg-black">
       <div className="sticky top-0 h-screen w-full overflow-hidden">
-        
-        {/* Loading Spinner */}
-        {!isLoaded && (
-          <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-black">
-            <div className="w-12 h-12 border-4 border-[#FFD900]/20 border-t-[#FFD900] rounded-full animate-spin" />
-            <p className="text-[#FFD900] mt-4 tracking-widest text-xs uppercase">Loading Experience</p>
-          </div>
-        )}
-
-        {/* Video Background */}
         <video
           ref={videoRef}
           src="/videos/bnb-event-animation.mp4"
+          className="absolute inset-0 z-10 h-full w-full object-cover"
           muted
           playsInline
           preload="auto"
-          className="absolute inset-0 z-10 w-full h-full object-cover"
-          onLoadedMetadata={handleLoadedMetadata}
-          onLoadedData={handleLoadedData}
-          onCanPlay={handleCanPlay}
-          onError={handleError}
-          style={{ opacity: isLoaded ? 1 : 0, transition: "opacity 0.5s ease" }}
+          onLoadedMetadata={(event) => {
+            const video = event.currentTarget;
+            video.currentTime = Math.min(SCRUB_START_SECONDS, Math.max(video.duration - 0.25, 0));
+          }}
+          onCanPlay={(event) => {
+            event.currentTarget.pause();
+            setIsReady(true);
+          }}
+          onLoadedData={(event) => {
+            event.currentTarget.pause();
+            setIsReady(true);
+          }}
+          onError={() => setHasError(true)}
+          style={{ opacity: isReady ? 1 : 0, transition: "opacity 0.7s ease" }}
         />
-        
-        {/* Overlay */}
-        <div className="absolute inset-0 z-20" style={{ background: "linear-gradient(to bottom, rgba(5,5,5,0.4) 0%, rgba(5,5,5,0.1) 40%, rgba(5,5,5,0.85) 100%)" }} />
 
-        {/* Text */}
-        <motion.div 
+        {!isReady && !hasError && (
+          <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-black">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#FFD900]/20 border-t-[#FFD900]" />
+            <p className="mt-4 text-xs uppercase tracking-widest text-[#FFD900]">Loading Experience</p>
+          </div>
+        )}
+
+        {hasError && (
+          <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-black px-6 text-center">
+            <p className="text-sm text-red-400">Could not load video. Check the MP4 path or codec.</p>
+            <p className="mt-2 text-xs text-[#A0A0A0]">/videos/bnb-event-animation.mp4</p>
+          </div>
+        )}
+
+        <div
+          className="absolute inset-0 z-20"
+          style={{
+            background:
+              "linear-gradient(to bottom, rgba(5,5,5,0.55) 0%, rgba(5,5,5,0.12) 42%, rgba(5,5,5,0.9) 100%)",
+          }}
+        />
+
+        <motion.div
           style={{ opacity: textOpacity }}
-          className="absolute inset-0 z-30 flex flex-col justify-end pb-24 px-6 md:px-16 max-w-7xl mx-auto w-full pointer-events-none"
+          className="pointer-events-none absolute inset-0 z-30 mx-auto flex w-full max-w-7xl flex-col justify-end px-6 pb-24 md:px-16"
         >
-          <div className="flex items-center gap-3 mb-7 pointer-events-auto">
+          <div className="mb-7 flex items-center gap-3">
             <div className="h-px w-10 bg-[#FFD900]" />
-            <span className="text-[#FFD900] text-[11px] tracking-[0.35em] font-medium uppercase">Premium Event Planners</span>
+            <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-[#FFD900]">
+              Premium Event Planners
+            </span>
           </div>
 
           <h1
-            className="text-[clamp(2.8rem,8vw,6rem)] font-bold leading-[1.02] mb-5 text-white pointer-events-auto"
+            className="mb-5 text-[clamp(2.8rem,8vw,6rem)] font-bold leading-[1.02] text-white"
             style={{ fontFamily: "'Playfair Display', serif" }}
           >
             We Turn Moments<br />
@@ -167,29 +148,31 @@ export default function ScrollVideoHero() {
             Memories
           </h1>
 
-          <p className="text-[#A0A0A0] text-base md:text-lg max-w-xl mb-3 leading-relaxed pointer-events-auto">
-            Premium Event Planning & Decoration Services in{" "}
-            <span className="text-white">Hosur, Bangalore, Krishnagiri & Dharmapuri</span>.
+          <p className="mb-3 max-w-xl text-base leading-relaxed text-[#A0A0A0] md:text-lg">
+            Premium Event Planning &amp; Decoration Services in{" "}
+            <span className="text-white">Hosur, Bangalore, Krishnagiri &amp; Dharmapuri</span>.
           </p>
-          <p className="text-[#FFD900]/70 text-[12px] tracking-[0.25em] uppercase mb-10 pointer-events-auto">
+          <p className="mb-10 text-[12px] uppercase tracking-[0.25em] text-[#FFD900]/70">
             Creating Beautiful Memories is our Business
           </p>
 
-          <div className="flex flex-col sm:flex-row items-start gap-4 pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col items-start gap-4 sm:flex-row">
             <a
               href="#what-we-do"
-              className="group flex items-center gap-3 text-white hover:text-[#050505] hover:bg-[#FFD900] px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-300"
+              className="group flex items-center gap-3 px-6 py-3 text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:bg-[#FFD900] hover:text-[#050505]"
               style={{
-                background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.10)",
+                background: "rgba(255,255,255,0.04)",
+                backdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.10)",
                 clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)",
               }}
             >
               EXPLORE OUR WORK
-              <ChevronDown size={15} className="group-hover:translate-y-1 transition-transform duration-300" />
+              <ChevronDown size={15} className="transition-transform duration-300 group-hover:translate-y-1" />
             </a>
             <a
               href="#make-an-enquiry"
-              className="flex items-center gap-2 text-[#050505] bg-[#FFD900] hover:bg-[#E5B800] px-6 py-3 text-sm font-semibold tracking-wide transition-all duration-300"
+              className="flex items-center gap-2 bg-[#FFD900] px-6 py-3 text-sm font-semibold tracking-wide text-[#050505] transition-all duration-300 hover:bg-[#E5B800]"
               style={{ clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)" }}
             >
               Make an Enquiry <ArrowRight size={15} />
@@ -197,30 +180,20 @@ export default function ScrollVideoHero() {
           </div>
         </motion.div>
 
-        {/* Scroll Indicator */}
         <motion.div
           style={{ opacity: indicatorOpacity }}
-          className="absolute right-8 bottom-20 hidden md:flex flex-col items-center gap-2 z-30"
+          className="absolute bottom-20 right-8 z-30 hidden flex-col items-center gap-2 md:flex"
         >
-          <motion.span 
+          <motion.span
             animate={{ y: [0, 8, 0] }}
             transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
-            className="text-[#A0A0A0] text-[10px] tracking-[0.25em]" 
+            className="text-[10px] tracking-[0.25em] text-[#A0A0A0]"
             style={{ writingMode: "vertical-rl" }}
           >
-            SCROLL TO EXPLORE ↓
+            SCROLL TO EXPLORE
           </motion.span>
-          <div className="w-px h-12 bg-gradient-to-b from-[#FFD900] to-transparent mt-2" />
+          <div className="mt-2 h-12 w-px bg-gradient-to-b from-[#FFD900] to-transparent" />
         </motion.div>
-        
-        {/* Debug Indicator */}
-        <div className="absolute bottom-4 left-4 z-50 bg-black/80 text-white text-[10px] p-2 font-mono rounded">
-          <p>Video:</p>
-          <p>{videoState.status}</p>
-          <p ref={debugTimeRef}>Time: 0.00s / 0.00s</p>
-          {videoState.error && <p className="text-red-500">{videoState.error}</p>}
-        </div>
-
       </div>
     </section>
   );
